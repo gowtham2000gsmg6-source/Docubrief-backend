@@ -4,9 +4,6 @@ from typing import Any
 
 from vercel.queue import Message, subscribe
 
-from app.schemas.documents import SummaryStyle
-from app.workers.processing import mark_document_failed, process_document
-
 logger = logging.getLogger(__name__)
 
 
@@ -14,9 +11,12 @@ logger = logging.getLogger(__name__)
 async def process_document_message(message: Message[dict[str, Any]]) -> None:
     payload = message.payload
     document_id = payload.get("document_id")
-    style = payload.get("style", SummaryStyle.BRIEF.value)
+    style = payload.get("style", "Brief")
     if not isinstance(document_id, str) or not isinstance(style, str):
         raise ValueError("The queued document message is invalid.")
+
+    from app.schemas.documents import SummaryStyle
+    from app.workers.processing import mark_document_failed, process_document
 
     try:
         SummaryStyle(style)

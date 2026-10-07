@@ -15,6 +15,8 @@ def test_vercel_subscriber_uses_native_queue_handler() -> None:
     ]
     assert "celery[redis]>=5.4,<6" not in project["project"]["dependencies"]
     assert "vercel-queue>=0.1,<1" in project["project"]["dependencies"]
+    assert "redis>=5,<7" in project["project"]["dependencies"]
+    assert "celery[redis]>=5.4,<6" in project["project"]["optional-dependencies"]["local-worker"]
 
 
 def test_tesseract_is_default_outside_vercel() -> None:
