@@ -11,7 +11,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY pyproject.toml ./
 COPY app ./app
-RUN pip install .
+RUN pip install ".[local-worker]"
 RUN useradd --create-home --uid 10001 appuser
 USER appuser
 

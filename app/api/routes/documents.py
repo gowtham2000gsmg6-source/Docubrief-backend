@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import uuid
 from pathlib import PurePosixPath
@@ -23,11 +24,22 @@ from app.schemas.documents import (
     UploadFailureRequest,
     UploadPreparationResponse,
 )
-from app.workers.tasks import process_document
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/documents", tags=["documents"])
 ALLOWED_TYPES = {"pdf", "docx", "pptx", "txt", "md"}
+
+
+def _enqueue_document(document_id: str, style: str) -> None:
+    if get_settings().is_vercel:
+        from vercel.queue import send
+
+        asyncio.run(send("documents", {"document_id": document_id, "style": style}))
+        return
+
+    from app.workers.tasks import process_document_task
+
+    process_document_task.apply_async(args=[document_id, style], queue="documents")
 
 
 def _document_or_404(
@@ -126,7 +138,7 @@ def queue_document_processing(document_id: uuid.UUID, claims: UserClaims) -> Doc
     if row["status"] != DocumentStatus.QUEUED.value:
         raise HTTPException(status_code=409, detail="This document is not waiting for processing.")
     try:
-        process_document.apply_async(args=[str(document_id)], queue="documents")
+        _enqueue_document(str(document_id), "Brief")
     except Exception as exc:
         logger.exception(
             "Could not enqueue uploaded document",
@@ -243,7 +255,7 @@ def regenerate_summary(
         {"status": "summarizing", "error_message": None}
     ).eq("id", str(document_id)).eq("user_id", user_id).execute()
     try:
-        process_document.apply_async(args=[str(document_id), body.style.value], queue="documents")
+        _enqueue_document(str(document_id), body.style.value)
     except Exception as exc:
         logger.exception(
             "Could not queue summary regeneration",
