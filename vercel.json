@@ -1,0 +1,11 @@
+{
+  "functions": {
+    "app/main.py": {
+      "maxDuration": 300
+    },
+    "app/workers/vercel_worker.py": {
+      "maxDuration": 300
+    }
+  },
+  "regions": ["iad1"]
+}

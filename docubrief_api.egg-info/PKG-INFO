@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: docubrief-api
+Version: 0.1.0
+Summary: API and asynchronous document processing for DocuBrief
+Requires-Python: >=3.12
+Requires-Dist: celery[redis]<6,>=5.4
+Requires-Dist: chardet<6,>=5.2
+Requires-Dist: fastapi<1,>=0.115
+Requires-Dist: httpx<1,>=0.27
+Requires-Dist: openai<2,>=1.50
+Requires-Dist: Pillow<12,>=10.4
+Requires-Dist: pydantic-settings<3,>=2.5
+Requires-Dist: PyJWT[crypto]<3,>=2.9
+Requires-Dist: pymupdf<2,>=1.24
+Requires-Dist: pytesseract<1,>=0.3.13
+Requires-Dist: python-docx<2,>=1.1
+Requires-Dist: python-pptx<2,>=1.0
+Requires-Dist: python-multipart<1,>=0.0.12
+Requires-Dist: supabase<3,>=2.9
+Requires-Dist: uvicorn[standard]<1,>=0.30
+Provides-Extra: dev
+Requires-Dist: pytest<9,>=8.3; extra == "dev"
+Requires-Dist: pytest-cov<7,>=5; extra == "dev"
