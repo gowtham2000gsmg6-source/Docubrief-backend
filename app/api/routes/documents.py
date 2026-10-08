@@ -228,6 +228,37 @@ def get_document(document_id: uuid.UUID, claims: UserClaims) -> DocumentDetail:
     )
 
 
+@router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_document(document_id: uuid.UUID, claims: UserClaims) -> None:
+    user_id = claims["sub"]
+    row = _document_or_404(str(document_id), user_id)
+    if row["status"] in {
+        DocumentStatus.QUEUED.value,
+        DocumentStatus.EXTRACTING.value,
+        DocumentStatus.SUMMARIZING.value,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Wait for document processing to finish before deleting it.",
+        )
+
+    supabase = get_supabase()
+    try:
+        supabase.storage.from_(get_settings().storage_bucket).remove([row["storage_path"]])
+        supabase.table("documents").delete().eq("id", str(document_id)).eq(
+            "user_id", user_id
+        ).execute()
+    except Exception as exc:
+        logger.exception(
+            "Could not delete document",
+            extra={"document_id": str(document_id), "user_id": user_id, "event": "document_delete_failed"},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The document could not be deleted. Please try again.",
+        ) from exc
+
+
 @router.get("/{document_id}/status", response_model=DocumentResponse)
 def get_document_status(document_id: uuid.UUID, claims: UserClaims) -> DocumentResponse:
     row = _document_or_404(str(document_id), claims["sub"])
