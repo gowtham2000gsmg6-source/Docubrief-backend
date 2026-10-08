@@ -48,7 +48,7 @@ def process_document(document_id: str, style: str, task_id: str) -> None:
         .maybe_single()
         .execute()
     )
-    if existing_summary.data:
+    if existing_summary is not None and existing_summary.data:
         update_document(document_id, {"status": "completed", "error_message": None})
         return
 
