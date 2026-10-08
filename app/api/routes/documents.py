@@ -252,7 +252,7 @@ def regenerate_summary(
 ) -> RegenerateSummaryResponse:
     user_id = claims["sub"]
     enforce_rate_limit(user_id=user_id, action="summarize", limit=get_settings().summarize_rate_limit)
-    row = _document_or_404(str(document_id), user_id)
+    row = _document_or_404(str(document_id), user_id, include_text=True)
     if not row.get("extracted_text"):
         raise HTTPException(status_code=409, detail="Text extraction must complete before regenerating a summary.")
     get_supabase().table("documents").update(
