@@ -42,6 +42,10 @@ def _enqueue_document(document_id: str, style: str) -> None:
     process_document_task.apply_async(args=[document_id, style], queue="documents")
 
 
+def _storage_object_path(user_id: str, document_id: str, file_type: str) -> str:
+    return f"{user_id}/{document_id}/document.{file_type}"
+
+
 def _document_or_404(
     document_id: str,
     user_id: str,
@@ -90,7 +94,7 @@ def upload_document(
         raise HTTPException(status_code=415, detail="Supported formats are PDF, DOCX, PPTX, TXT, and MD.")
 
     document_id = str(uuid.uuid4())
-    storage_path = f"{user_id}/{document_id}/{filename}"
+    storage_path = _storage_object_path(user_id, document_id, file_type)
     supabase = get_supabase()
     row = {
         "id": document_id,
