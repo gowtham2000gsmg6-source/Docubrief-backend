@@ -16,6 +16,23 @@ class _SummaryPayload(BaseModel):
     key_points: list[str]
 
 
+class _QuizQuestionPayload(BaseModel):
+    question: str
+    options: list[str]
+    correct_answer: str
+    explanation: str
+
+
+class _QuizPayload(BaseModel):
+    title: str
+    questions: list[_QuizQuestionPayload]
+
+
+class _AnswerPayload(BaseModel):
+    answer: str
+    source_excerpt: str | None = None
+
+
 @dataclass(frozen=True)
 class SummaryResult:
     title: str
@@ -131,3 +148,53 @@ def summarize_text(text: str, style: SummaryStyle) -> SummaryResult:
         model_used=", ".join(sorted(set(model_names))),
         token_count=token_count if has_usage else None,
     )
+
+
+def generate_quiz(text: str, *, question_count: int = 5) -> dict[str, Any]:
+    if not text.strip():
+        raise ValueError("There is no extracted text to quiz against.")
+    client = _client()
+    response = client.chat.completions.create(
+        model=get_settings().llm_model,
+        messages=[
+            {"role": "system", "content": "You create concise, fact-based quizzes from a source document. Return only valid JSON."},
+            {"role": "user", "content": (
+                "Create a short multiple-choice quiz based only on the source text below. "
+                f"Generate exactly {question_count} questions. "
+                "Each question must include: question, options (4 strings), correct_answer, and explanation. "
+                "Do not invent facts beyond the document. "
+                "Return a JSON object with fields: title and questions.\n\nSOURCE:\n"
+                f"{text[:12000]}"
+            )},
+        ],
+        response_format={"type": "json_object"},
+    )
+    content = response.choices[0].message.content
+    if not content:
+        raise ValueError("The configured language model returned an empty quiz.")
+    payload = _QuizPayload.model_validate(json.loads(content))
+    return payload.model_dump()
+
+
+def answer_document_question(text: str, question: str) -> dict[str, Any]:
+    if not text.strip() or not question.strip():
+        raise ValueError("Both the document text and the question are required.")
+    client = _client()
+    response = client.chat.completions.create(
+        model=get_settings().llm_model,
+        messages=[
+            {"role": "system", "content": "Answer using only the supplied source text. Be precise and cite a short excerpt when helpful."},
+            {"role": "user", "content": (
+                "Use the document text below to answer the question. "
+                "If the answer is not in the document, say so clearly. "
+                "Return JSON with fields: answer and source_excerpt.\n\nQUESTION:\n"
+                f"{question}\n\nSOURCE:\n{text[:12000]}"
+            )},
+        ],
+        response_format={"type": "json_object"},
+    )
+    content = response.choices[0].message.content
+    if not content:
+        raise ValueError("The configured language model returned an empty answer.")
+    payload = _AnswerPayload.model_validate(json.loads(content))
+    return payload.model_dump()

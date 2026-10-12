@@ -93,3 +93,24 @@ class RegenerateSummaryRequest(BaseModel):
 class RegenerateSummaryResponse(BaseModel):
     id: UUID
     status: DocumentStatus
+
+
+class QuizQuestion(BaseModel):
+    question: str
+    options: list[str]
+    correct_answer: str
+    explanation: str
+
+
+class QuizResponse(BaseModel):
+    title: str
+    questions: list[QuizQuestion]
+
+
+class AskDocumentRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=1000)
+
+
+class AskDocumentResponse(BaseModel):
+    answer: str
+    source_excerpt: str | None = None

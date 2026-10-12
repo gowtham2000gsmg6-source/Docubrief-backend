@@ -12,11 +12,14 @@ from app.core.config import get_settings
 from app.core.rate_limit import enforce_rate_limit
 from app.core.supabase import get_supabase
 from app.schemas.documents import (
+    AskDocumentRequest,
+    AskDocumentResponse,
     DocumentAccepted,
     DocumentDetail,
     DocumentListResponse,
     DocumentResponse,
     DocumentStatus,
+    QuizResponse,
     RegenerateSummaryRequest,
     RegenerateSummaryResponse,
     SummaryResponse,
@@ -24,6 +27,7 @@ from app.schemas.documents import (
     UploadFailureRequest,
     UploadPreparationResponse,
 )
+from app.services.summarizer.service import answer_document_question, generate_quiz
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -301,3 +305,31 @@ def regenerate_summary(
         ).eq("id", str(document_id)).eq("user_id", user_id).execute()
         raise HTTPException(status_code=503, detail="Summary regeneration could not be queued.") from exc
     return RegenerateSummaryResponse(id=document_id, status=DocumentStatus.SUMMARIZING)
+
+
+@router.post("/{document_id}/quiz", response_model=QuizResponse)
+def generate_document_quiz(document_id: uuid.UUID, claims: UserClaims) -> QuizResponse:
+    row = _document_or_404(str(document_id), claims["sub"], include_text=True)
+    if not row.get("extracted_text"):
+        raise HTTPException(status_code=409, detail="Text extraction must complete before generating a quiz.")
+    try:
+        quiz = generate_quiz(row["extracted_text"])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return QuizResponse.model_validate(quiz)
+
+
+@router.post("/{document_id}/ask", response_model=AskDocumentResponse)
+def ask_document_question(
+    document_id: uuid.UUID,
+    body: AskDocumentRequest,
+    claims: UserClaims,
+) -> AskDocumentResponse:
+    row = _document_or_404(str(document_id), claims["sub"], include_text=True)
+    if not row.get("extracted_text"):
+        raise HTTPException(status_code=409, detail="Text extraction must complete before asking a question.")
+    try:
+        answer = answer_document_question(row["extracted_text"], body.question)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return AskDocumentResponse.model_validate(answer)
