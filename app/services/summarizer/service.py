@@ -162,7 +162,12 @@ def generate_quiz(text: str, *, question_count: int = 5) -> dict[str, Any]:
                 "Create a short multiple-choice quiz based only on the source text below. "
                 f"Generate exactly {question_count} questions. "
                 "Each question must include: question, options (4 strings), correct_answer, and explanation. "
-                "Do not invent facts beyond the document. "
+                "The explanation must teach why the correct answer is right: explain the underlying concept, "
+                "mechanism, or reasoning, then connect it to the question. Do not merely restate the answer "
+                "or say that the source/document/text states or describes it; citing the source is not a reason. "
+                "For example, explain the defining relationship or principle behind an answer rather than "
+                "saying it is correct because it appears in the material. Keep explanations concise and "
+                "ground every factual claim in the supplied text; do not invent unsupported details. "
                 "Return a JSON object with fields: title and questions.\n\nSOURCE:\n"
                 f"{text[:12000]}"
             )},
