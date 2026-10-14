@@ -53,14 +53,45 @@ def _client() -> OpenAI:
     return OpenAI(**kwargs)
 
 
-def _request_summary(client: OpenAI, text: str, style: SummaryStyle, *, reducing: bool) -> tuple[_SummaryPayload, str, int | None]:
+def _request_summary(
+    client: OpenAI,
+    text: str,
+    style: SummaryStyle,
+    *,
+    reducing: bool,
+    final: bool = False,
+) -> tuple[_SummaryPayload, str, int | None]:
     settings = get_settings()
-    task = "Combine the supplied partial summaries into one coherent final summary." if reducing else "Summarize this document excerpt faithfully."
+    task = "Combine the supplied partial summaries into one coherent summary." if reducing else "Summarize this document excerpt faithfully."
+    if style == SummaryStyle.BRIEF:
+        if final:
+            length_guidance = "Write about 250-350 words, preserving the main ideas and the most important supporting details."
+        elif reducing:
+            length_guidance = "Write about 180-260 words, preserving the main ideas and the most important supporting details."
+        else:
+            length_guidance = "Write about 120-180 words, capturing this excerpt's main ideas and important supporting details."
+    elif style == SummaryStyle.DETAILED:
+        if final:
+            length_guidance = "Write about 700-1,000 words, retaining distinct topics and substantive supporting detail."
+        elif reducing:
+            length_guidance = "Write about 350-500 words, retaining distinct topics and substantive supporting detail."
+        else:
+            length_guidance = "Write about 250-350 words, explaining this excerpt's key concepts, processes, and supporting detail."
+    else:
+        if final:
+            length_guidance = "Write 12-18 informative bullets, retaining distinct topics and important supporting details."
+        elif reducing:
+            length_guidance = "Write 8-12 informative bullets, retaining distinct topics and important supporting details."
+        else:
+            length_guidance = "Write 5-8 informative bullets covering this excerpt's key ideas and supporting details."
     prompt = (
-        f"{task} Requested style: {style.value}. "
+        f"{task} Requested style: {style.value}. {length_guidance} "
         "Return a JSON object with exactly these fields: title (short document title), "
-        "summary_text (the summary), key_points (array of concise takeaways). "
-        "Do not invent facts. For Bullet points style, make summary_text a readable bullet list."
+        "summary_text (the summary), key_points (5-8 concise, distinct takeaways). "
+        "Cover the important concepts, sections, explanations, relationships, and conclusions present in the supplied content. "
+        "For a final summary, combine information across all supplied partial summaries instead of focusing on only the opening topics. "
+        "Avoid generic filler, repeated points, and unsupported facts. Do not force the target length if the supplied content is too short to support it. "
+        "For Bullet points style, format summary_text as Markdown bullets; each bullet should communicate a complete, useful point."
     )
     response = client.chat.completions.create(
         model=settings.llm_model,
@@ -139,7 +170,7 @@ def summarize_text(text: str, style: SummaryStyle) -> SummaryResult:
             raise ValueError("The document produced too many partial summaries to combine safely.")
         reduce_input = next_input
 
-    final, final_model, tokens = _request_summary(client, reduce_input, style, reducing=True)
+    final, final_model, tokens = _request_summary(client, reduce_input, style, reducing=True, final=True)
     record_usage(final_model, tokens)
     return SummaryResult(
         title=final.title,
